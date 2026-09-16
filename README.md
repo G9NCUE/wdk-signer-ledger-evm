@@ -8,7 +8,9 @@ key never leaves it.
 Port of [tetherto/wdk-wallet-evm PR #89](https://github.com/tetherto/wdk-wallet-evm/pull/89)
 onto the published beta.18, as a package outside the WDK. Differences from the PR:
 
-- one device session shared by the root signer and every derived account, one WebHID prompt;
+- one device session shared by the root signer and every derived account, one WebHID prompt,
+  and disposing the root ends every derived account (the WDK manager only disposes accounts that
+  hold a private key);
 - `signAuthorization` implemented on `signDelegationAuthorization` of the Ethereum signer kit 1.18
   (the PR, on 1.10, threw: the app could not sign an EIP-7702 authorization alone at the time);
 - the primary type of typed data is resolved by ethers, not taken as the first key of `types`;
@@ -27,7 +29,7 @@ const wallet = new WalletManagerEvm(new LedgerSignerEvm({ dmk }), { provider: 'h
 
 // call from a click handler: the first getAddress opens the browser device picker
 const account = await wallet.getAccount(0)
-await account.getAddress()          // 44'/60'/0'/0/0 on the device
+await account.getAddress()          // m/44'/60'/0'/0/0 on the device
 await account.sign('hello')         // confirmed on the device
 await account.sendTransaction({ to, value: 1n })
 ```

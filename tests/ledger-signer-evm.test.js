@@ -157,3 +157,12 @@ test('dispose closes the device session once, from the root', async () => {
   await new Promise(r => setImmediate(r))
   assert.deepEqual(ledger.dmk.calls.filter(c => c.startsWith('disconnect')), ['disconnect:session-1'])
 })
+
+test('disposing the root ends the accounts derived from it, no reconnection', async () => {
+  const { ledger, wallet } = setup()
+  const account = await wallet.getAccount(1)
+  await account.sign('alive')
+  wallet.dispose()
+  await assert.rejects(account.sign('dead'), /disposed/)
+  assert.equal(ledger.dmk.calls.filter(c => c === 'connect').length, 1)
+})

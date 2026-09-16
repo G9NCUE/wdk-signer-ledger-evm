@@ -33,8 +33,8 @@ export default class LedgerSignerEvm extends ISigner {
     this._buildSignerEth = buildSignerEth ?? defaultBuildSignerEth
     this._path = fullPath(path)
     this._isChild = isChild
-    // shared by reference between the root and its children: { id, signerEth }
-    this._session = session ?? { id: '', signerEth: undefined }
+    // shared by reference between the root and its children: { id, signerEth, disposed }
+    this._session = session ?? { id: '', signerEth: undefined, disposed: false }
     this._address = undefined
     this._publicKey = null
   }
@@ -104,13 +104,15 @@ export default class LedgerSignerEvm extends ISigner {
     return { ...populated, signature: Signature.from(toEthersSig(sig)) }
   }
 
-  // the root owns the device session, children only drop their references
+  // the root owns the device session: disposing it disconnects and ends every derived child;
+  // a child's dispose only drops its own references
   dispose () {
-    if (!this._isChild && this._session.id && this._dmk) {
+    if (!this._isChild && this._dmk) {
       const { id } = this._session
       this._session.id = ''
       this._session.signerEth = undefined
-      this._dmk.disconnect({ sessionId: id }).catch(() => {})
+      this._session.disposed = true
+      if (id) this._dmk.disconnect({ sessionId: id }).catch(() => {})
     }
     this._dmk = undefined
     this._publicKey = null
@@ -118,7 +120,7 @@ export default class LedgerSignerEvm extends ISigner {
 
   // connects on first use, checks the device is unlocked and reachable, returns the SignerEth
   async _ready () {
-    if (!this._dmk) throw new InvalidSignerError('The signer has been disposed.')
+    if (!this._dmk || this._session.disposed) throw new InvalidSignerError('The signer has been disposed.')
     if (!this._session.id) await this._connect()
     let state
     try {
