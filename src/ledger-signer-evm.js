@@ -11,8 +11,14 @@ async function defaultBuildSignerEth ({ dmk, sessionId }) {
   return new SignerEthBuilder({ dmk, sessionId }).build()
 }
 
-const PATH_PREFIX = "44'/60'"
+const PATH_PREFIX = "m/44'/60'"
 const DEFAULT_PATH = "0'/0/0"
+
+// paths are reported in full with the m/ prefix, as wdk-wallet-evm's seed signer does on the
+// universal-signer branch; derive() accepts "0'/0/1", "44'/60'/0'/0/1" or "m/44'/60'/0'/0/1"
+function fullPath (path) {
+  return `${PATH_PREFIX}/${path.replace(/^m\//, '').replace(/^44'\/60'\//, '')}`
+}
 
 // Follows the ISignerEvm contract by shape: wdk-wallet-evm beta.18 does not export the class.
 // Port of tetherto/wdk-wallet-evm PR #89 (Ledger DMK) onto the published beta.18, with one
@@ -25,7 +31,7 @@ export default class LedgerSignerEvm extends ISigner {
     if (!dmk) throw new ValueError('A Ledger DeviceManagementKit is required.')
     this._dmk = dmk
     this._buildSignerEth = buildSignerEth ?? defaultBuildSignerEth
-    this._path = `${PATH_PREFIX}/${path}`
+    this._path = fullPath(path)
     this._isChild = isChild
     // shared by reference between the root and its children: { id, signerEth }
     this._session = session ?? { id: '', signerEth: undefined }
@@ -42,6 +48,8 @@ export default class LedgerSignerEvm extends ISigner {
   get isDerivable () { return !this._isChild }
   get index () { return +this._path.split('/').pop() }
   get path () { return this._path }
+  // the device kit wants the path without the m/ prefix
+  get _devicePath () { return this._path.slice(2) }
   get address () { return this._address }
   get keyPair () { return { privateKey: null, publicKey: this._publicKey } }
 
@@ -53,7 +61,7 @@ export default class LedgerSignerEvm extends ISigner {
   async getAddress () {
     if (this._address) return this._address
     const signerEth = await this._ready()
-    const { address, publicKey } = await this._run(signerEth.getAddress(this._path, { checkOnDevice: false }))
+    const { address, publicKey } = await this._run(signerEth.getAddress(this._devicePath, { checkOnDevice: false }))
     this._address = address
     this._publicKey = getBytes(hex0x(publicKey))
     return this._address
@@ -61,7 +69,7 @@ export default class LedgerSignerEvm extends ISigner {
 
   async sign (message) {
     const signerEth = await this._ready()
-    const sig = await this._run(signerEth.signMessage(this._path, message))
+    const sig = await this._run(signerEth.signMessage(this._devicePath, message))
     return Signature.from(toEthersSig(sig)).serialized
   }
 
@@ -74,7 +82,7 @@ export default class LedgerSignerEvm extends ISigner {
     }
     const tx = Transaction.from(txLike)
     const signerEth = await this._ready()
-    const sig = await this._run(signerEth.signTransaction(this._path, getBytes(tx.unsignedSerialized)))
+    const sig = await this._run(signerEth.signTransaction(this._devicePath, getBytes(tx.unsignedSerialized)))
     tx.signature = Signature.from(toEthersSig(sig))
     return tx.serialized
   }
@@ -84,7 +92,7 @@ export default class LedgerSignerEvm extends ISigner {
     const { EIP712Domain, ...rest } = types
     const primaryType = TypedDataEncoder.from(rest).primaryType
     const signerEth = await this._ready()
-    const sig = await this._run(signerEth.signTypedData(this._path, { domain, types: rest, primaryType, message }))
+    const sig = await this._run(signerEth.signTypedData(this._devicePath, { domain, types: rest, primaryType, message }))
     return Signature.from(toEthersSig(sig)).serialized
   }
 
@@ -92,7 +100,7 @@ export default class LedgerSignerEvm extends ISigner {
   async signAuthorization (auth) {
     const populated = { address: auth.address, nonce: BigInt(auth.nonce ?? 0), chainId: BigInt(auth.chainId ?? 0) }
     const signerEth = await this._ready()
-    const sig = await this._run(signerEth.signDelegationAuthorization(this._path, Number(populated.chainId), populated.address, Number(populated.nonce)))
+    const sig = await this._run(signerEth.signDelegationAuthorization(this._devicePath, Number(populated.chainId), populated.address, Number(populated.nonce)))
     return { ...populated, signature: Signature.from(toEthersSig(sig)) }
   }
 

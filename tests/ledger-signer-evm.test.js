@@ -24,7 +24,7 @@ test('requires a dmk', () => {
 test('root signer is derivable, with the BIP-44 path and index', () => {
   const { signer } = setup()
   assert.equal(signer.isDerivable, true)
-  assert.equal(signer.path, "44'/60'/0'/0/0")
+  assert.equal(signer.path, "m/44'/60'/0'/0/0")
   assert.equal(signer.index, 0)
 })
 
@@ -32,7 +32,7 @@ test('account 0 through the WDK manager has the device address', async () => {
   const { ledger, wallet } = setup()
   const account = await wallet.getAccount(0)
   assert.equal(await account.getAddress(), expected(0, ledger))
-  assert.equal(account.path, "44'/60'/0'/0/0")
+  assert.equal(account.path, "m/44'/60'/0'/0/0")
   assert.equal(account.keyPair.privateKey, null)
   assert.equal(account.keyPair.publicKey.length, 65)
 })
