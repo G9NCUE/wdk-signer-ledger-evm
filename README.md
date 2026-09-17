@@ -13,7 +13,9 @@ onto the published beta.18, as a package outside the WDK. Differences from the P
   hold a private key);
 - `signAuthorization` implemented on `signDelegationAuthorization` of the Ethereum signer kit 1.18
   (the PR, on 1.10, threw: the app could not sign an EIP-7702 authorization alone at the time);
-- the primary type of typed data is resolved by ethers, not taken as the first key of `types`;
+- the primary type of typed data is resolved by ethers, not taken as the first key of `types`, and the
+  data goes through `TypedDataEncoder.getPayload` first, so BigInt values (a 7702 user operation) reach
+  the device kit as strings ([issue #42](https://github.com/tetherto/wdk-wallet-evm-7702-gasless/issues/42) on the 7702 module);
 - the Ledger kits are loaded lazily, so the package and its tests run in Node without a bundler.
 
 Browser only. WebHID exists in Chromium browsers, on `https` or `localhost`.
