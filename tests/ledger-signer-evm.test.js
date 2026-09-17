@@ -109,6 +109,16 @@ test('signs typed data, primary type resolved, EIP712Domain stripped', async () 
   assert.ok(ledger.signerEth.calls.includes('signTypedData:Transfer'))
 })
 
+test('signs typed data whose message holds bigints, JSON-safe for the device kit', async () => {
+  const { ledger, wallet } = setup()
+  const account = await wallet.getAccount(0)
+  const address = await account.getAddress()
+  const typed = { domain: { name: 'WDK', version: '1', chainId: 42161n, verifyingContract: address }, types: { Op: [{ name: 'nonce', type: 'uint256' }, { name: 'to', type: 'address' }] }, message: { nonce: 2n ** 70n, to: address } }
+  const real = ledger.signerEth.signTypedData.bind(ledger.signerEth)
+  ledger.signerEth.signTypedData = (path, td) => { JSON.stringify(td); return real(path, td) }
+  assert.equal(verifyTypedData(typed.domain, typed.types, typed.message, await account.signTypedData(typed)), address)
+})
+
 test('signs an EIP-7702 authorization', async () => {
   const { wallet } = setup()
   const account = await wallet.getAccount(0)

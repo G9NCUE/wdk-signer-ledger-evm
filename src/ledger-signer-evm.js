@@ -88,11 +88,15 @@ export default class LedgerSignerEvm extends ISigner {
   }
 
   async signTypedData ({ domain, types, message }) {
-    // the device kit adds the EIP712Domain struct itself, and wants the primary type spelled out
-    const { EIP712Domain, ...rest } = types
+    // the device kit adds the EIP712Domain struct itself and wants the primary type spelled out;
+    // values go through ethers' payload so bigints (a 7702 user operation) become strings
+    const { EIP712Domain, ...rest } = types // ethers wants the domain struct out of types
+    const payload = TypedDataEncoder.getPayload(domain, rest, message)
+    const kitDomain = { ...payload.domain }
+    if (kitDomain.chainId !== undefined) kitDomain.chainId = Number(kitDomain.chainId)
     const primaryType = TypedDataEncoder.from(rest).primaryType
     const signerEth = await this._ready()
-    const sig = await this._run(signerEth.signTypedData(this._devicePath, { domain, types: rest, primaryType, message }))
+    const sig = await this._run(signerEth.signTypedData(this._devicePath, { domain: kitDomain, types: rest, primaryType, message: payload.message }))
     return Signature.from(toEthersSig(sig)).serialized
   }
 
